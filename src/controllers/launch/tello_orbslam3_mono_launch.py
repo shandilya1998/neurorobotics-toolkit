@@ -33,9 +33,8 @@ def generate_launch_description():
             respawn=True,
             arguments=['--ros-args', '--log-level', logger],
             parameters = [{
-                'settings_path': '/ws/ros_ws/src/slam/orb_slam3/config/Monocular/tello.yaml',
+                'settings_path': '/ws/ros_ws/src/slam/config/orbslam3_mono_config.yaml',
                 'camera_topic': '/camera',
-                'vocab_file_path': '/ws/ros_ws/src/slam/orb_slam3/Vocabulary/ORBvoc.txt.bin'
             }]
         ),
 
@@ -45,7 +44,7 @@ def generate_launch_description():
             executable='orbslam3_mono_node',
             name='orbslam3_mono_node',
             respawn=True,
-            arguments=['--ros-args', '--log-level', logger]
+            arguments=['--ros-args', '--log-level', 'DEBUG']
         ),
     ]
 

@@ -1,5 +1,6 @@
 string config_file_path
 string camera_topic
+string camera_type
 ---
 bool success
 string message

@@ -60,7 +60,7 @@ class MonoDriver(Node):
     def __init__(self, node_name = "mono_py_node"):
         super().__init__(node_name) # Initializes the rclpy.Node class. It expects the name of the node
 
-        self.declare_parameter("settings_path","/ws/config/slam/orbslam3/camera_settings.yaml")
+        self.declare_parameter("settings_path","/ws/ros_ws/src/slam/config/orbslam3_mono_config.yaml")
         self.declare_parameter("camera_topic", "/camera")
         self.declare_parameter("vocab_file_path", "/ws/config/slam/orbslam3/vocab.txt")
         self.declare_parameter("slam_compute_node_name", "orbslam3_mono_node")
@@ -74,7 +74,7 @@ class MonoDriver(Node):
         while not self.slam_startup_client.wait_for_service(timeout_sec = 1.0):
             self.get_logger().info('service not available, waiting again.....')
         self.startup_req = StartupSlam.Request()
-        response = self.send_slam_startup_request(self.settings_path, self.camera_topic, self.vocab_file_path)
+        response = self.send_slam_startup_request(self.settings_path, self.camera_topic)
         print(response.success)
         #* Parse values sent by command line
 
@@ -82,7 +82,6 @@ class MonoDriver(Node):
         print(f"-------------- Received parameters --------------------------\n")
         print(f"settings_path: {self.settings_path}")
         print(f"camera_topic: {self.camera_topic}")
-        print(f"vocab_file_path: {self.vocab_file_path}")
         print()
 
         # Global variables
@@ -106,10 +105,10 @@ class MonoDriver(Node):
     # ****************************************************************************************
 
     # ****************************************************************************************
-    def send_slam_startup_request(self, settings_path, camera_topic, vocab_file_path):
+    def send_slam_startup_request(self, settings_path, camera_topic):
         self.startup_req.config_file_path = settings_path
         self.startup_req.camera_topic = camera_topic
-        self.startup_req.vocab_file_path = vocab_file_path
+        self.startup_req.camera_type = 'monocular'
         self.slam_startup_future = self.slam_startup_client.call_async(self.startup_req)
         rclpy.spin_until_future_complete(self, self.slam_startup_future)
         return self.slam_startup_future.result()
