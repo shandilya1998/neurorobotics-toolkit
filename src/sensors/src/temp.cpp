@@ -1,132 +1,99 @@
-#include <gst/gst.h>
-#include <glib.h>
 #include <gst/app/gstappsrc.h>
+#include <gst/gst.h>
 #include <opencv2/opencv.hpp>
-#include <unistd.h>
-#include <chrono>
-#include <thread>
 
-using namespace std::chrono_literals;
+#include <cassert>
 
+int main() {
+	GstElement *pipeline, *appsrc, *videoconvert, *x264enc, *mp4mux, *filesink,
+			   *autovideosink;
+	GstCaps *caps;
+	GstMapInfo map;
 
-typedef struct {
-    GstPipeline *pipeline = nullptr;
-    GstAppSrc  *app_src = nullptr;
-    GstElement *video_convert = nullptr;
-    GstElement *encoder = nullptr;
-    GstElement *h264_parser = nullptr;
-    GstElement *qt_mux = nullptr;
-    GstElement *file_sink = nullptr;
-}CustomData;
+	gst_init(nullptr, nullptr);
 
+	pipeline = gst_pipeline_new("mypipeline");
 
+	// Create elements
+	appsrc = gst_element_factory_make("appsrc", "mysource");
+	videoconvert = gst_element_factory_make("videoconvert", "myconvert");
+	x264enc = gst_element_factory_make("x264enc", "myencoder");
+	mp4mux = gst_element_factory_make("mp4mux", "mymux");
+	filesink = gst_element_factory_make("filesink", "myfileoutput");
 
-int main(int argc,char * argv[]){
-    CustomData data;
-    GstBus *bus = nullptr;
-    GstMessage *msg = nullptr;
-    GstStateChangeReturn ret;
-    gboolean terminate = false;
-    GstClockTime timestamp = 0;
-    gst_init(&argc, &argv); 
-
-    data.pipeline = (GstPipeline*)gst_pipeline_new("m_pipeline");
-    data.app_src = (GstAppSrc*)gst_element_factory_make("appsrc","m_app_src");
-    data.video_convert = gst_element_factory_make("videoconvert","m_video_convert");
-    data.encoder = gst_element_factory_make("x264enc","m_x264enc");
-    data.h264_parser = gst_element_factory_make("h264parse","m_h264_parser");
-    data.qt_mux = gst_element_factory_make("qtmux","qt_mux");
-    data.file_sink = gst_element_factory_make("filesink","file_sink");
-
-	if(!data.app_src){
-        g_printerr("failed to create app src element\n");
-		return -1;
-	}
-	if(!data.video_convert){
-        g_printerr("failed to create video convert element\n");
-		return -1;
-	}
-	if(!data.encoder){
-        g_printerr("failed to create encoder element\n");
-		return -1;
-	}
-	if(!data.h264_parser){
-        g_printerr("failed to create encr element\n");
-		return -1;
-	}
-	if(!data.qt_mux){
-        g_printerr("failed to create qt_mux element\n");
-		return -1;
-	}
-	if(!data.file_sink){
-        g_printerr("failed to create file_sink element\n");
-		return -1;
-	}
-	if(!data.pipeline){
-        g_printerr("failed to create pipeline\n");
-		return -1;
+	if (!pipeline || !appsrc || !videoconvert || !x264enc || !mp4mux ||
+			!filesink) {
+		g_printerr("Not all elements could be created.\n");
+		// return -1;
 	}
 
-    // if (!data.app_src || !data.video_convert || !data.encoder || !data.h264_parser || !data.qt_mux || !data.file_sink || !data.pipeline){
-    //     g_printerr("failed to create all elements\n");
-    //     return -1;
-    // }
+	// Set the properties for filesink
+	g_object_set(filesink, "location", "/ws/output.mp4", NULL);
 
-    gst_bin_add_many(GST_BIN(data.pipeline), (GstElement*)data.app_src, data.video_convert, data.encoder, data.h264_parser, data.qt_mux, data.file_sink, NULL);
+	// Build the pipeline
+	gst_bin_add(GST_BIN(pipeline), appsrc);
+	gst_bin_add(GST_BIN(pipeline), videoconvert);
+	gst_bin_add(GST_BIN(pipeline), x264enc);
+	gst_bin_add(GST_BIN(pipeline), mp4mux);
+	gst_bin_add(GST_BIN(pipeline), filesink);
 
-    g_assert(gst_element_link_many((GstElement*)data.app_src, data.video_convert, data.encoder, data.h264_parser, data.qt_mux, data.file_sink,NULL));
+	// Link the elements
+	gst_element_link(appsrc, videoconvert);
+	gst_element_link(videoconvert, x264enc);
+	gst_element_link(x264enc, mp4mux);
+	gst_element_link(mp4mux, filesink);
 
-    GstCaps *caps = gst_caps_new_simple("video/x-raw","format",G_TYPE_STRING,"BGR",
-                                        "width",G_TYPE_INT,1920,
-                                        "height",G_TYPE_INT,1080,
-                                        "framerate",GST_TYPE_FRACTION,30,1,
-                                        NULL);
+	caps =
+		gst_caps_from_string("video/x-raw, format=(string)BGR, width=(int)1920, "
+				"height=(int)1080, framerate=(fraction)30/1");
 
-    gst_app_src_set_caps(GST_APP_SRC(data.app_src), caps);
-    g_object_set(data.app_src,"is_live",true,NULL);
-    g_object_set(data.app_src,"format",GST_FORMAT_TIME,NULL);
+	g_object_set(appsrc, "caps",  caps, nullptr);
+	gst_caps_unref(caps);
+	g_object_set(appsrc, "format", GST_FORMAT_TIME, nullptr);
 
-    std::string mp4_url = "/ws/des.mp4";
+	gst_element_set_state(pipeline, GST_STATE_PLAYING);
+	std::cout<<"created pipeline" <<std::endl;
 
-    g_object_set(data.file_sink,"location",mp4_url.c_str(),NULL);
+	cv::VideoCapture cap;
+	cap.open("/ws/src.mp4");
 
-    ret = gst_element_set_state((GstElement*)data.pipeline, GST_STATE_PLAYING);
-    if (ret == GST_STATE_CHANGE_FAILURE){
-        g_printerr("Unable to set the pipeline to the playing state. \n");
-        gst_object_unref(data.pipeline);
-        return -1;
-    }
-
-    cv::VideoCapture cap;
-    cap.open("/ws/src.mp4");
-    
-    if(!cap.isOpened())
-        return -2;
-    cv::Mat frame;
-    while(true){
-        cap.read(frame);
-        if(frame.empty()){
-            break;
-        }
-        GstBuffer *buffer;
-        buffer = gst_buffer_new_wrapped(frame.data, frame.size().width * frame.size().height * frame.channels());
-
-        GST_BUFFER_PTS (buffer) = timestamp;
-        GST_BUFFER_DURATION (buffer) = gst_util_uint64_scale_int (1, GST_SECOND, 25);
-		timestamp += GST_BUFFER_DURATION (buffer);
-        GstFlowReturn ret;
-
-        g_signal_emit_by_name(data.app_src, "push-buffer", buffer, &ret);
-        usleep(1000000/25);
-    }
-	gst_app_src_end_of_stream(data.app_src);
+	if(!cap.isOpened())
+		return -2;
+	cv::Mat frame;
 	int i = 0;
-	while(i < 10000000){
+	GstBuffer *buf;
+	while(true){
+		cap.read(frame);
+		if(frame.empty()){
+			break;
+		}
+		buf = gst_buffer_new_and_alloc(1920 * 1080 * 3); 
+		gst_buffer_map(buf, &map, GST_MAP_WRITE);
+		memcpy(map.data, frame.data, frame.total() * frame.elemSize());
+		// memcpy(buf, frame.data, 19)
+		// buf = gst_buffer_new_wrapped(frame.data, frame.size().width * frame.size().height * frame.channels());
+
+		buf->pts = GST_MSECOND * 30 * i;
+		buf->dts = buf->pts;
+		buf->duration = GST_MSECOND * 33;
+		gst_buffer_unmap(buf, &map);
+		gst_app_src_push_buffer(GST_APP_SRC(appsrc), buf);
 		i++;
 	}
 
-    gst_element_set_state((GstElement*)data.pipeline, GST_STATE_NULL);
-    gst_object_unref(data.pipeline);
-    return 0;
-}
+	gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
 
+	GstBus *bus = gst_element_get_bus(pipeline);
+	GstMessage *msg = gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE, static_cast<GstMessageType>(GST_MESSAGE_ERROR | GST_MESSAGE_EOS ));
+	if (GST_MESSAGE_TYPE (msg) == GST_MESSAGE_ERROR) {
+		g_error ("An error occurred! Re-run with the GST_DEBUG=*:WARN environment "
+				"variable set for more details.");
+	}
+
+	if (msg != NULL)
+		gst_message_unref(msg);
+
+	gst_object_unref(bus);
+	gst_element_set_state(pipeline, GST_STATE_NULL);
+	gst_object_unref(pipeline);
+}

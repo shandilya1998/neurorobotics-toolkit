@@ -17,6 +17,7 @@ find_package(PkgConfig REQUIRED)
 # Command to check gstreamer dependencies
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-video-1.0  gstreamer-app-1.0)
 
+include_directories(include)
 link_directories( ${GST_LIBRARY_DIRS}  )
 include_directories( ${GST_INCLUDE_DIRS}  )
 
@@ -32,6 +33,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
 
 add_executable(video_logger_node
 	src/temp.cpp
+	src/video/logger.cpp
 )
 
 ament_target_dependencies(video_logger_node
