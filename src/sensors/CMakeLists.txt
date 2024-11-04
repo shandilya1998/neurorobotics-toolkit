@@ -32,15 +32,28 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
 )
 
 add_executable(video_logger_node
-	src/temp.cpp
+	src/video/logger_main.cpp
 	src/video/logger.cpp
+	src/video/common.cpp
+)
+add_executable(video_reader_node
+	src/video/reader_main.cpp
+	src/video/reader.cpp
+	src/video/common.cpp
 )
 
 ament_target_dependencies(video_logger_node
 	PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
+ament_target_dependencies(video_reader_node
+	PUBLIC ${THIS_PACKAGE_INCLUDE_DEPENDS}
+)
 
 target_link_libraries(video_logger_node
+	PUBLIC ${OpenCV_LIBS}
+	PUBLIC ${GST_LIBRARIES}
+)
+target_link_libraries(video_reader_node
 	PUBLIC ${OpenCV_LIBS}
 	PUBLIC ${GST_LIBRARIES}
 )
@@ -54,6 +67,17 @@ install(TARGETS video_logger_node
 	LIBRARY DESTINATION lib
 	RUNTIME DESTINATION lib/${PROJECT_NAME}
 	INCLUDES DESTINATION include/${PROJECT_NAME}
+)
+install(TARGETS video_reader_node
+	ARCHIVE DESTINATION lib
+	LIBRARY DESTINATION lib
+	RUNTIME DESTINATION lib/${PROJECT_NAME}
+	INCLUDES DESTINATION include/${PROJECT_NAME}
+)
+
+install(DIRECTORY
+	launch
+	DESTINATION share/${PROJECT_NAME}/
 )
 
 if(BUILD_TESTING)

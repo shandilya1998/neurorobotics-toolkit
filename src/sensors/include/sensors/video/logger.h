@@ -1,23 +1,12 @@
+#include "sensors/video/common.h"
 #include <gst/app/gstappsrc.h>
-#include <gst/gst.h>
-#include <opencv2/opencv.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include "sensor_msgs/msg/image.hpp"
-#include <cv_bridge/cv_bridge.h>
-#include <memory>
-
-typedef struct {
-	int mWidth;
-	int mHeight;
-	int mNumChannels;
-	int mFPS;
-} VideoProperties;
 
 class VideoLogger{
 	public:
 		VideoLogger(rclcpp::Logger logger, std::string &outputPath, VideoProperties &props);
 		~VideoLogger();
-		int getVideoLoggerStatus(){return mpVideoLoggerStatus;}
+		void run();
+		int getStatus(){return mpVideoLoggerStatus;}
 		void logFrame(cv::Mat &image);
 	private:
 		GstElement* mpPipeline;

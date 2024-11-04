@@ -8,12 +8,21 @@ VideoLogger::VideoLogger(rclcpp::Logger logger, std::string &outputPath, VideoPr
 	mpOutputFrameSize = mpOutputImageWidth * mpOutputImageHeight * mpNumChannels;
 	mpFrameCounter = 0;
 	
+    gst_init(nullptr, nullptr);
 	// Create elements
+    mpPipeline = gst_pipeline_new("video-logger-pipeline");
 	mpAppsrc = gst_element_factory_make("appsrc", "mysource");
 	mpVideoconvert = gst_element_factory_make("videoconvert", "myconvert");
 	mpX264enc = gst_element_factory_make("x264enc", "myencoder");
 	mpMp4mux = gst_element_factory_make("mp4mux", "mymux");
 	mpFilesink = gst_element_factory_make("filesink", "myfileoutput");
+    
+	check_element_creation(mpPipeline, "pipeline");
+	check_element_creation(mpAppsrc, "appsrc");
+	check_element_creation(mpVideoconvert, "videoconvert");
+	check_element_creation(mpX264enc, "x264encoder");
+	check_element_creation(mpMp4mux, "mp4muxer");
+	check_element_creation(mpFilesink, "filesink");
 
 	if (!mpPipeline||!mpAppsrc||!mpVideoconvert||!mpX264enc||!mpMp4mux||!mpFilesink){
 		RCLCPP_ERROR(mpLogger, "Not all elements could be created.");
@@ -31,10 +40,10 @@ VideoLogger::VideoLogger(rclcpp::Logger logger, std::string &outputPath, VideoPr
 		gst_bin_add(GST_BIN(mpPipeline), mpFilesink);
 
 		// Link the elements
-		gst_element_link(mpAppsrc, mpVideoconvert);
-		gst_element_link(mpVideoconvert, mpX264enc);
-		gst_element_link(mpX264enc, mpMp4mux);
-		gst_element_link(mpMp4mux, mpFilesink);
+		check_linking(gst_element_link(mpAppsrc, mpVideoconvert), "appsrc to videoconvert");
+		check_linking(gst_element_link(mpVideoconvert, mpX264enc), "videoconvert to x264encoder");
+		check_linking(gst_element_link(mpX264enc, mpMp4mux), "x264encoder to mp4 muxer");
+		check_linking(gst_element_link(mpMp4mux, mpFilesink), "mp4 muxer to filesink");
 		
 		// Configure appsrc element
 		std::string stringCaps = "video/x-raw, format=(string)BGR, width=(int)" + std::to_string(mpOutputImageWidth) + ", height=(int)" + std::to_string(mpOutputImageHeight) + ", framerate=(fraction)" + std::to_string(mpInputDataFPS) + "/1";
@@ -75,6 +84,8 @@ void VideoLogger::logFrame(cv::Mat &image){
 	gst_buffer_unmap(buf, &mpMap);
 	gst_app_src_push_buffer(GST_APP_SRC(mpAppsrc), buf);
 	mpFrameCounter++;	
+	cv::imshow("image", image);
+	cv::waitKey(1);
 }
 
 VideoLoggerNode::VideoLoggerNode(std::string nodeName): Node(nodeName){
@@ -90,7 +101,7 @@ VideoLoggerNode::VideoLoggerNode(std::string nodeName): Node(nodeName){
 	rcl_interfaces::msg::ParameterDescriptor heightDesc;
 	heightDesc.description = "Height of output image";
 	heightDesc.type = 2;
-	this->declare_parameter<int>("width", 480, heightDesc);
+	this->declare_parameter<int>("height", 480, heightDesc);
 	rcl_interfaces::msg::ParameterDescriptor fpsDesc;
 	fpsDesc.description = "FPS of input image stream";
 	fpsDesc.type = 2;
@@ -110,6 +121,7 @@ VideoLoggerNode::VideoLoggerNode(std::string nodeName): Node(nodeName){
 	mpInputDataFPS = this->get_parameter("fps").as_int();
 	mpTopicName = this->get_parameter("camera_topic").as_string();
 	mpImageType = this->get_parameter("image_type").as_string();
+	RCLCPP_INFO(this->get_logger(), "Set Video Logger Parameters");
 	if(mpImageType.compare("bgr") == 0){
 		mpNumChannels = 3;	
 	}
@@ -127,6 +139,7 @@ VideoLoggerNode::VideoLoggerNode(std::string nodeName): Node(nodeName){
 		10,
 		std::bind(&VideoLoggerNode::frameCallback, this, std::placeholders::_1)
 	);
+	RCLCPP_INFO(this->get_logger(), "Created Video Logger Node");
 }
 
 void VideoLoggerNode::frameCallback(const sensor_msgs::msg::Image::ConstSharedPtr &img){
