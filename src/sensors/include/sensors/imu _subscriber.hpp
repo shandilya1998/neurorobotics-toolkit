@@ -7,8 +7,8 @@ class IMUSubscriber : public rclcpp::Node
 {
 public:
     IMUSubscriber(const std::string &csv_file_path);
-        
-    
+
+
     ~IMUSubscriber();
     
 
@@ -20,11 +20,11 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subscription_;
 
     // Calibration offsets
-    double gyro_x_offset_;
-    double gyro_y_offset_;
-    double gyro_z_offset_;
-    double accel_x_offset_;
-    double accel_y_offset_;
-    double accel_z_offset_;
+    double mpGyroXOffset;
+    double mpGyroYOffset;
+    double mpGyroZOffset;
+    double mpAccelXOffset;
+    double mpAccelYOffset;
+    double mpAccelZOffset;
 };
 

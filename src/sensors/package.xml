@@ -3,7 +3,7 @@
 <package format="3">
   <name>sensors</name>
   <version>0.0.1</version>
-  <description>ROS 2 IMU subscriber package for logging IMU data to a CSV file.</description>
+  <description>TODO: Package description</description>
   <maintainer email="shandilya.shreyas@gmail.com">root</maintainer>
   <license>Apache-2.0</license>
 
